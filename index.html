@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -101,4 +101,139 @@
     });
   </script>
 </body>
+</html> -->/
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Reset Password</title>
+
+  <!-- Load Supabase v2 (global is window.supabase) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    :root { --bg:#f9fafb; --card:#fff; --text:#111827; --muted:#6b7280; --border:#e5e7eb; --brand:#4f46e5; --brand2:#4338ca; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; margin: 0; padding: 16px;
+    }
+    .container {
+      background: var(--card);
+      width: 100%; max-width: 420px;
+      padding: 24px; border-radius: 14px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+      border: 1px solid var(--border);
+    }
+    h2 { margin: 0 0 6px; color: var(--text); text-align: center; }
+    p.sub { margin: 0 0 20px; color: var(--muted); text-align: center; font-size: 0.95rem; }
+    label { display:block; margin: 10px 0 6px; font-weight: 600; color: var(--text); }
+    input[type="password"]{
+      width:100%; padding:12px; border:1px solid var(--border);
+      border-radius:10px; font-size:16px; outline:none;
+    }
+    input[type="password"]:focus{ border-color: var(--brand); box-shadow: 0 0 0 3px rgba(79,70,229,0.15); }
+    button{
+      width:100%; padding:12px; margin-top:12px;
+      background: var(--brand); color:#fff; border:none; border-radius:10px;
+      font-size:16px; cursor:pointer;
+    }
+    button:hover{ background: var(--brand2); }
+    .msg{ margin-top:12px; text-align:center; font-weight:600; }
+    .msg.error{ color:#dc2626; }
+    .msg.ok{ color:#16a34a; }
+    .hint{ margin-top:10px; font-size:0.875rem; color:var(--muted); text-align:center; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Reset your password</h2>
+    <p class="sub">Enter a new password below.</p>
+
+    <form id="reset-form" novalidate>
+      <label for="password">New password</label>
+      <input id="password" type="password" placeholder="New password" autocomplete="new-password" required minlength="6"/>
+
+      <label for="confirm">Confirm password</label>
+      <input id="confirm" type="password" placeholder="Confirm password" autocomplete="new-password" required minlength="6"/>
+
+      <button id="submitBtn" type="submit">Update password</button>
+    </form>
+
+    <div id="message" class="msg" aria-live="polite"></div>
+    <div class="hint">If you opened this page directly, use the link from your recovery email instead.</div>
+  </div>
+
+  <script>
+    window.addEventListener('load', async () => {
+      const SUPABASE_URL = "https://gkjsidwvcxkxxzuzzgjk.supabase.co";
+      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdranNpZHd2Y3hreHh6dXp6Z2prIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU0NTE3NTgsImV4cCI6MjA3MTAyNzc1OH0.qDlffzQpPWJ9JR5Q8VwaGBGSQ-51xB5g02A2YTuY86U";               // <-- change me
+
+      // Create client from global "supabase"
+      const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+      const form = document.getElementById('reset-form');
+      const pwd = document.getElementById('password');
+      const confirm = document.getElementById('confirm');
+      const msg = document.getElementById('message');
+      const btn = document.getElementById('submitBtn');
+
+      // Optional: check that we have a recovery session
+      try {
+        const { data: { session } } = await sb.auth.getSession();
+        if (!session) {
+          msg.className = 'msg error';
+          msg.textContent = 'No recovery session detected. Please use the link from your email.';
+        }
+      } catch(e){}
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault(); // prevent page reload
+
+        // Client-side validation
+        if (!pwd.value || !confirm.value) {
+          msg.className = 'msg error';
+          msg.textContent = 'Please fill both password fields.';
+          return;
+        }
+        if (pwd.value.length < 6) {
+          msg.className = 'msg error';
+          msg.textContent = 'Password must be at least 6 characters.';
+          return;
+        }
+        if (pwd.value !== confirm.value) {
+          msg.className = 'msg error';
+          msg.textContent = 'Passwords do not match.';
+          return;
+        }
+
+        // Call Supabase to update password
+        btn.disabled = true; btn.textContent = 'Updating...';
+        msg.className = 'msg'; msg.textContent = '';
+
+        try {
+          const { data, error } = await sb.auth.updateUser({ password: pwd.value });
+          if (error) {
+            msg.className = 'msg error';
+            msg.textContent = error.message || 'Something went wrong.';
+          } else {
+            msg.className = 'msg ok';
+            msg.textContent = 'Password updated! You can now open the app and log in.';
+            // Optionally clear fields
+            pwd.value = ''; confirm.value = '';
+          }
+        } catch (err) {
+          msg.className = 'msg error';
+          msg.textContent = err?.message || 'Unexpected error.';
+        } finally {
+          btn.disabled = false; btn.textContent = 'Update password';
+        }
+      });
+    });
+  </script>
+</body>
 </html>
+
